@@ -1,0 +1,28 @@
+version: "3"
+
+vars:
+  GO_TOOLS:
+    sh: printf '%s/bin' "$(go env GOPATH)"
+
+tasks:
+  default:
+    deps: [ci]
+
+  fmt:
+    cmds:
+      - "{{.GO_TOOLS}}/gofumpt -w ."
+      - "{{.GO_TOOLS}}/goimports -w -local github.com/soul-sol/go-exec-format-doctor ."
+
+  ci:
+    cmds:
+      - go mod verify
+      - test -z "$({{.GO_TOOLS}}/gofumpt -l .)"
+      - go vet ./...
+      - "{{.GO_TOOLS}}/golangci-lint run ./..."
+      - "{{.GO_TOOLS}}/nilaway ./..."
+      - go test -race -shuffle=on -count=1 ./...
+
+  build:
+    cmds:
+      - mkdir -p bin
+      - go build -trimpath -ldflags="-s -w" -o bin/go-exec-format-doctor ./cmd/go-exec-format-doctor
