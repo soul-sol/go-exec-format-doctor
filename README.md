@@ -1,5 +1,7 @@
 # go-exec-format-doctor
 
+[![Go Reference](https://pkg.go.dev/badge/github.com/soul-sol/go-exec-format-doctor.svg)](https://pkg.go.dev/github.com/soul-sol/go-exec-format-doctor)
+
 Diagnose `exec format error` and binary architecture mismatches without running
 the file.
 
@@ -26,6 +28,9 @@ Or build from source with Go 1.23 or newer:
 ```sh
 go install github.com/soul-sol/go-exec-format-doctor/cmd/go-exec-format-doctor@latest
 ```
+
+The module and command documentation are indexed on
+[pkg.go.dev](https://pkg.go.dev/github.com/soul-sol/go-exec-format-doctor).
 
 ## Use
 
