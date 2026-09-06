@@ -1,0 +1,106 @@
+name: "Go Exec Format Doctor — binary architecture gate"
+description: "Inspect a built binary without executing it and fail CI when its format does not match the runner."
+author: "soul-sol"
+
+branding:
+  icon: "cpu"
+  color: "blue"
+
+inputs:
+  path:
+    description: "Path to the built ELF, Mach-O, PE, script, or archive to inspect."
+    required: true
+  quiet:
+    description: "Suppress the optional further-help URL in the diagnostic report."
+    required: false
+    default: "false"
+
+outputs:
+  verdict:
+    description: "Inspection verdict: compatible, mismatch, conditional, not-executable, or unknown."
+    value: ${{ steps.inspect.outputs.verdict }}
+  format:
+    description: "Detected file format."
+    value: ${{ steps.inspect.outputs.format }}
+  target:
+    description: "Detected target OS and comma-separated architectures."
+    value: ${{ steps.inspect.outputs.target }}
+  report_json:
+    description: "Complete machine-readable inspection report as compact JSON."
+    value: ${{ steps.inspect.outputs.report_json }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: ${{ github.action_path }}/go.mod
+        cache: false
+
+    - id: inspect
+      name: Inspect binary header
+      shell: bash
+      env:
+        DOCTOR_TARGET_PATH: ${{ inputs.path }}
+        DOCTOR_QUIET: ${{ inputs.quiet }}
+      run: |
+        set -u
+
+        case "$DOCTOR_QUIET" in
+          true|false) ;;
+          *)
+            printf 'invalid quiet value: %s (expected true or false)\n' "$DOCTOR_QUIET" >&2
+            exit 2
+            ;;
+        esac
+
+        doctor_binary=$(mktemp "$RUNNER_TEMP/go-exec-format-doctor.XXXXXX")
+        report_file=$(mktemp "$RUNNER_TEMP/go-exec-format-report.XXXXXX")
+        error_file=$(mktemp "$RUNNER_TEMP/go-exec-format-error.XXXXXX")
+        trap 'rm -f "$doctor_binary" "$report_file" "$error_file"' EXIT
+
+        (
+          cd "$GITHUB_ACTION_PATH"
+          CGO_ENABLED=0 go build -trimpath -o "$doctor_binary" ./cmd/go-exec-format-doctor
+        )
+
+        args=(--json)
+        if [ "$DOCTOR_QUIET" = "true" ]; then
+          args+=(--quiet)
+        fi
+
+        set +e
+        "$doctor_binary" "${args[@]}" -- "$DOCTOR_TARGET_PATH" > "$report_file" 2> "$error_file"
+        doctor_exit_code=$?
+        set -e
+
+        if [ -s "$report_file" ]; then
+          REPORT_PATH="$report_file" node <<'NODE'
+        const fs = require("fs");
+
+        const raw = fs.readFileSync(process.env.REPORT_PATH, "utf8").trim();
+        const report = JSON.parse(raw);
+        const architectures = Array.isArray(report.architectures)
+          ? report.architectures.join(",")
+          : "";
+        const targetOS = report.target_os || "unknown";
+        const targetArchitectures = architectures || "unknown";
+        const output = [
+          `verdict=${report.verdict || "unknown"}`,
+          `format=${report.format || "unknown"}`,
+          `target=${targetOS}/${targetArchitectures}`,
+          `report_json=${JSON.stringify(report)}`,
+          "",
+        ].join("\n");
+
+        fs.appendFileSync(process.env.GITHUB_OUTPUT, output);
+        NODE
+          cat "$report_file"
+        fi
+
+        if [ -s "$error_file" ]; then
+          cat "$error_file" >&2
+        fi
+
+        exit "$doctor_exit_code"

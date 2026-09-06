@@ -1,5 +1,43 @@
 # go-exec-format-doctor
 
+## GitHub Actions architecture gate
+
+Copy this workflow to reject a PR when its Linux binary was built for an
+architecture that does not match the `ubuntu-latest` runner:
+
+```yaml
+name: Binary architecture gate
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  binary-architecture:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build binary
+        run: CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dist/my-service ./cmd/my-service
+
+      - name: Verify binary format and architecture
+        uses: soul-sol/go-exec-format-doctor@v1
+        with:
+          path: dist/my-service
+```
+
+The action exports `verdict`, `format`, `target`, and `report_json`. It preserves
+the CLI's exit codes, so mismatches, archives, and unknown formats fail the job;
+compatible binaries and conditionally runnable shebang scripts pass.
+
 [![Go Reference](https://pkg.go.dev/badge/github.com/soul-sol/go-exec-format-doctor.svg)](https://pkg.go.dev/github.com/soul-sol/go-exec-format-doctor)
 
 Diagnose `exec format error` and binary architecture mismatches without running
