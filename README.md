@@ -122,7 +122,7 @@ availability can still prevent execution.
 ## Going further
 
 If you want to prevent architecture mismatches in CI, the
-[USD 29 Go/Linux Cross-Architecture CI Starter Kit](https://soul-sol.github.io/verified-automation-services/go-cross-architecture-ci-kit.html)
+[USD 39 Go/Linux Cross-Architecture CI Starter Kit](https://soul-sol.github.io/verified-automation-services/go-cross-architecture-ci-kit.html)
 adds tested AMD64, ARM64, and 386 workflows, compile reports, and optional QEMU
 smoke tests. The free doctor remains complete and does not require the kit.
 
